@@ -3,26 +3,50 @@
 # file: event_nlp.rb
 
 require 'chronic'
+require 'ostruct'
 require 'app-routes'
 
 
 
+module Ordinals
+
+  refine Integer do
+    def ordinal
+      self.to_s + ( (10...20).include?(self) ? 'th' : 
+                    %w{ th st nd rd th th th th th th }[self % 10] )
+    end
+  end
+end
+
+
 class EventNlp
   include AppRoutes
+  using Ordinals
   
+  attr_accessor :params
   
-  def initialize()
-
+  def initialize(now=Time.now, params: {})
+    
     super()
-    @params = {}    
+    
+    @now = now
+    @params = params
     expressions(@params)    
 
   end
+  
+  def parse(s)
+    
+    r = run_route(s)
+    return unless r.is_a? Hash
+    
+    OpenStruct.new({input: s}.merge r)
+    
+  end  
 
   private
 
   def expressions(params) 
-
     
     # some event every 2 weeks
     # some event every 2 weeks at 6am starting from 14th Jan
@@ -31,7 +55,7 @@ class EventNlp
     # some event every 2nd Monday (starting 7th Nov until 3rd Dec)
 
 
-    starting = /(?:\(?\s*starting (\d+\w2} \w+\s*\w*)(?: until (.*))?\s*\))?/
+    starting = /(?:\(?\s*starting (\d+\w{2} \w+\s*\w*)(?: until (.*))?\s*\))?/
     weekday = Date::DAYNAMES.join('|').downcase
     months = (Date::MONTHNAMES[1..-1] + Date::ABBR_MONTHNAMES[1..-1])
       .join('|').downcase
@@ -39,16 +63,15 @@ class EventNlp
 
     get /^(.*)(every \w+ \w+(?: at (\d+am) )?)\s*#{starting}/ do \
                                    |title, recurring, time, raw_date, end_date|
-      
+
       input = params[:input]
-      
+
       d = Chronic.parse(raw_date)
       
       if recurring =~ /day|week/ then
-                
-        
+
         if d < @now then
-          
+
           new_date = CronFormat.new(ChronicCron.new(recurring)\
                                     .to_expression, d).to_time
           input.gsub!(raw_date, new_date\
@@ -58,9 +81,9 @@ class EventNlp
         end
       end
       
-
       #puts [0, title, recurring, time, raw_date, end_date].inspect
-      {title: title, recurring: recurring, date: d, end_date: end_date}
+      {input: input, title: title, recurring: recurring, date: d, 
+       end_date: end_date}
       
     end
     
@@ -139,19 +162,12 @@ class EventNlp
       { title: title, date: d, recurring: recurring }
     end    
     
-
-        
-    
     # e.g. 04-Aug@12:34
     get '*' do |s|
       puts 's: ' + s.inspect
       'pattern unrecognised'
     end
 
-
   end
   
-  alias parse run_route
-  
-
 end
