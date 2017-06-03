@@ -105,7 +105,7 @@ class EventNlp
       #puts [1.5, title, raw_day].inspect
       { title: title, date: d }
       
-    end
+    end    
     
     # e.g. 21/05/2017 Forum meetup at Roundpeg from 2pm
     get /^(\d+\/\d+\/\d+)\s+(.*)(?: from|at)\s+(\d+[ap]m)/ do 
@@ -117,6 +117,27 @@ class EventNlp
       
       #puts [3, title, raw_date].inspect
       { title: title, date: d }
+    end        
+    
+    # friday hall 2 11am
+    get /^(#{weekday})\s+(.*)\s+(\d+(?::\d{2})?[ap]m)$/i do |raw_day, title, time|
+      
+      d = Chronic.parse(raw_day + ' ' + time)
+      
+      #puts [1.44, title, raw_day].inspect
+      { title: title, date: d }
+      
+    end    
+    
+    
+    # hall 2 at 11am
+    get /(.*)\s+at\s+(.*)/i do |title,  time|
+      
+      d = Chronic.parse(time)
+      
+      #puts [1.45, title].inspect
+      { title: title, date: d }
+      
     end        
  
     # hall 2 friday at 11am
