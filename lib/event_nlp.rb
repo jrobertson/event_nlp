@@ -2,7 +2,7 @@
 
 # file: event_nlp.rb
 
-require 'chronic'
+require 'chronic_cron'
 require 'ostruct'
 require 'app-routes'
 
@@ -36,8 +36,9 @@ class EventNlp
   end
   
   def parse(s)
-    
+
     r = run_route(s)
+
     return unless r.is_a? Hash
     
     OpenStruct.new({input: s}.merge r)
@@ -61,7 +62,7 @@ class EventNlp
       .join('|').downcase
 
 
-    get /^(.*)(every \w+ \w+(?: at (\d+am) )?)\s*#{starting}/ do \
+    get /^(.*)(every \d\w+ \w+(?: at (\d+am) )?)\s*#{starting}/ do \
                                    |title, recurring, time, raw_date, end_date|
 
       input = params[:input]
@@ -86,6 +87,18 @@ class EventNlp
        end_date: end_date}
       
     end
+    
+    get /^(.*)(every .*)/ do |title, recurring|
+
+      input = params[:input]
+      exp = ChronicCron.new(recurring).to_expression
+
+      d = CronFormat.new(exp).to_time
+      
+      #puts [0.5, title, recurring, time, raw_date, end_date].inspect
+      {input: input, title: title, recurring: recurring, date: d }
+      
+    end    
     
     # some meeting 3rd thursday of the month at 7:30pm
     # some meeting First thursday of the month at 7:30pm
