@@ -224,7 +224,19 @@ class EventNlp
       
       puts [3, title, raw_date].inspect if @debug
       { title: title, date: d, recurring: recurring }
-    end    
+    end
+
+    # some event Wednesday 11am
+    
+    relative_day = '|today|tomorrow|tonight'
+    get /^(.*)\s+((?:#{weekday+relative_day}) \d{1,2}(?::\d{2})?[ap]m)/i do |title, raw_date|
+      
+      d = Chronic.parse(raw_date)
+      
+      puts [4, title, raw_date].inspect if @debug
+      {title: title, date: d }
+       
+    end
     
     # e.g. 04-Aug@12:34
     get '*' do |s|
