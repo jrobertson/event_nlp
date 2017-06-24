@@ -208,9 +208,12 @@ class EventNlp
     end
     
     # 27-Mar@1436 some important day
-    get /(\d[^\s]+)\s+([^\*]+)(\*)?/ do |raw_date, title, annualar|
+    # 25/07/2017 11pm some important day
+    #
+    get /(\d[^\s]+)\s*(\d+(?:\:\d+)?[ap]m)?\s+([^\*]+)(\*)?/ do |raw_date,
+        time, title, annualar|
 
-      d = Chronic.parse(raw_date, :endian_precedence => :little)
+      d = Chronic.parse(raw_date + ' ' + time.to_s, :endian_precedence => :little)
       recurring = nil
       
       if annualar then
@@ -222,7 +225,7 @@ class EventNlp
       end
       
       
-      puts [3, title, raw_date].inspect if @debug
+      puts [3, title, raw_date, time].inspect if @debug
       { title: title, date: d, recurring: recurring }
     end
 
