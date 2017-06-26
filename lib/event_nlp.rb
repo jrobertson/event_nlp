@@ -63,12 +63,12 @@ class EventNlp
       .join('|').downcase
 
 
-    get /^(.*)(every \d\w+ \w+(?: at (\d+am) )?)\s*#{starting}/ do \
+    get /^(.*)\s+(every \d\w+ \w+(?: (?:at )?(\d+am) )?)\s*#{starting}/ do \
                                    |title, recurring, time, raw_date, end_date|
 
       input = params[:input]
 
-      d = Chronic.parse(raw_date)
+      d = Chronic.parse(raw_date + ' ' + time.to_s)
       
       if recurring =~ /day|week/ then
 
