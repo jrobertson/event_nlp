@@ -63,10 +63,8 @@ class EventNlp
       .join('|').downcase
 
 
-    get /^(.*)\s+(every \d\w+ \w+(?: (?:at )?(\d+am) )?)\s*#{starting}/ do \
+    get /^(.*)\s+(every \d\w+ \w+(?: (?:at )?(\d+(?::\d+)?am) )?)\s*#{starting}/ do \
                                    |title, recurring, time, raw_date, end_date|
-
-      input = params[:input]
 
       d = Chronic.parse(raw_date + ' ' + time.to_s)
       
@@ -76,15 +74,13 @@ class EventNlp
 
           new_date = CronFormat.new(ChronicCron.new(recurring)\
                                     .to_expression, d).to_time
-          input.gsub!(raw_date, new_date\
-                      .strftime("#{new_date.day.ordinal} %b %Y"))        
           d = new_date
           
         end
       end
       
       puts [0, title, recurring, time, raw_date, end_date].inspect if @debug
-      {input: input, title: title, recurring: recurring, date: d, 
+      {title: title, recurring: recurring, date: d, 
        end_date: end_date}
       
     end
