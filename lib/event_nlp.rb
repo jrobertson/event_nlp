@@ -61,9 +61,10 @@ class EventNlp
     weekday = Date::DAYNAMES.join('|').downcase
     months = (Date::MONTHNAMES[1..-1] + Date::ABBR_MONTHNAMES[1..-1])
       .join('|').downcase
+    time = /(?: (?:at )?(\d+(?::\d+)?am) )?/
 
 
-    get /^(.*)\s+(every \d\w+ \w+(?: (?:at )?(\d+(?::\d+)?am) )?)\s*#{starting}/ do \
+    get /^(.*)\s+(every \d\w+ \w+#{time})\s*#{starting}/ do \
                                    |title, recurring, time, raw_date, end_date|
 
       d = Chronic.parse(raw_date + ' ' + time.to_s)
@@ -225,10 +226,11 @@ class EventNlp
       { title: title, date: d, recurring: recurring }
     end
 
+    # some event Wednesday
     # some event Wednesday 11am
     
     relative_day = '|today|tomorrow|tonight'
-    get /^(.*)\s+((?:#{weekday+relative_day}) \d{1,2}(?::\d{2})?[ap]m)/i do |title, raw_date|
+    get /^(.*)\s+((?:#{weekday+relative_day})(?: \d{1,2}(?::\d{2})?[ap]m)?)/i do |title, raw_date|
       
       d = Chronic.parse(raw_date)
       
