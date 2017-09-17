@@ -59,13 +59,19 @@ class EventNlp
 
 
     starting = /(?:\(?\s*starting (\d+\w{2} \w+\s*\w*)(?: until (.*))?\s*\))?/
-    weekday = Date::DAYNAMES.join('|').downcase
-    months = (Date::MONTHNAMES[1..-1] + Date::ABBR_MONTHNAMES[1..-1])
-      .join('|').downcase
-    time = /(?: (?:at )?(\d+(?::\d+)?am) )?/
+    weekdays = Date::DAYNAMES.join('|').downcase
+    months = (Date::MONTHNAMES[1..-1] + Date::ABBR_MONTHNAMES[1..-1])\
+                                                            .join('|').downcase
+    times = /(?: *(?:at )?(\d+(?::\d+)?[ap]m) *)/
+    days = /\d+(?:st|nd|rd|th)/
+    
+    #weekdays = Date::DAYNAMES.join('|').downcase
+    #
+    #times = /(?: *at )?\d[ap]m/
+    
 
 
-    get /^(.*)\s+(every \d\w+ \w+#{time})\s*#{starting}/ do \
+    get /^(.*)\s+(every \d\w+ \w+#{times})\s*#{starting}/ do \
                                    |title, recurring, time, raw_date, end_date|
 
       input = params[:input].clone            
@@ -125,10 +131,21 @@ class EventNlp
 
       exp = ChronicCron.new(recurring).to_expression
 
-      d = CronFormat.new(exp).to_time
+      raw_start_date = recurring[/(?<=starting )[^\)]+/]
+
+      
+      if raw_start_date then
+        start_date = Chronic.parse(raw_start_date, now: @now - 1)
+
+        cf = CronFormat.new(exp, start_date - 1)
+        #cf.next until cf.to_time >= start_date
+      else
+        cf = CronFormat.new(exp, @now)
+      end
+      d = cf.to_time
       
       puts [0.5, title, recurring, d].inspect if @debug
-      {title: title, recurring: recurring, date: d }
+      {title: title.rstrip, recurring: recurring, date: d }
       
     end    
     
@@ -143,7 +160,7 @@ class EventNlp
     end
     
     # hall 2 friday at 11am
-    get /(.*)\s+(#{weekday})\s+at\s+(.*)/i do |title, raw_day, time|
+    get /(.*)\s+(#{weekdays})\s+at\s+(.*)/i do |title, raw_day, time|
       
       d = Chronic.parse(raw_day + ' ' + time)
       
@@ -165,7 +182,7 @@ class EventNlp
     end        
     
     # friday hall 2 11am
-    get /^(#{weekday})\s+(.*)\s+(\d+(?::\d{2})?[ap]m)$/i do |raw_day, title, time|
+    get /^(#{weekdays})\s+(.*)\s+(\d+(?::\d{2})?[ap]m)$/i do |raw_day, title, time|
       
       d = Chronic.parse(raw_day + ' ' + time)
       
@@ -176,7 +193,7 @@ class EventNlp
     
     
     # hall 2 at 11am
-    get /(.*)\s+at\s+(.*)/i do |title,  time|
+    get /(.*)\s+at\s+(#{times})/i do |title,  time|
       
       d = Chronic.parse(time)
       
@@ -185,34 +202,10 @@ class EventNlp
       
     end        
  
-    # hall 2 friday at 11am
-    # some important day 24th Mar
-    
-    with_date = "(.*)\\s+(\\d\+\s*(?:st|nd|rd|th)?\\s+(?:#{months}))"
-    alt_pattern = '([^\d]+)\s+(\d+[^\*]+)(\*)?'
-    
-    get /#{with_date}|#{alt_pattern}\s*(\*)$/i do |title, raw_date, annualar|
-
-      d = Chronic.parse(raw_date)
-
-      recurring = nil
-      
-      if annualar then
-        
-        recurring = 'yearly'
-        if d < @now then
-          d = Chronic.parse(raw_date, now: Time.local(@now.year + 1, 1, 1)) 
-        end
-      end
-      
-      puts [2, title, raw_date].inspect if @debug
-      { title: title, date: d, recurring: recurring }
-    end
-    
     # 27-Mar@1436 some important day
     # 25/07/2017 11pm some important day
     #
-    get /(\d[^\s]+)\s*(\d+(?:\:\d+)?[ap]m)?\s+([^\*]+)(\*)?/ do |raw_date,
+    get /^(\d[^\s]+)\s*(\d+(?:\:\d+)?[ap]m)?\s+([^\*]+)(\*)?/ do |raw_date,
         time, title, annualar|
 
       d = Chronic.parse(raw_date + ' ' + time.to_s, 
@@ -236,7 +229,7 @@ class EventNlp
     # some event Wednesday 11am
     
     relative_day = '|today|tomorrow|tonight'
-    get /^(.*)\s+((?:#{weekday+relative_day})(?: \d{1,2}(?::\d{2})?[ap]m)?)/i \
+    get /^(.*)\s+((?:#{weekdays+relative_day})(?: \d{1,2}(?::\d{2})?[ap]m)?)/i \
                                                            do |title, raw_date|
       
       d = Chronic.parse(raw_date)
@@ -246,12 +239,49 @@ class EventNlp
        
     end
     
-    # e.g. 04-Aug@12:34
-    get '*' do |s|
-      puts 's: ' + s.inspect if @debug
-      'pattern unrecognised'
-    end
+    # Tuesday 3rd October gas service at Barbara's house morning 9am-1pm
+    
+    get '*' do
+      
+      s = params[:input]
+      
+      time1, time2, month, weekday, day, end_date, annualar  = nil, nil, nil, 
+          nil, nil, nil, false
 
+      s2 = s.sub(/#{times}/i) {|x| time1 = x; ''}
+      s3 = s2.sub(/-(?=\d)/,'').sub(/#{times}/i) {|x| time2 = x; ''}
+      s4 = s3.sub(/ *#{weekdays} */i) {|x| weekday = x; ''}
+      s5 = s4.sub(/ *#{months} */i) {|x| month = x; ''}
+      s6 = s5.sub(/ *#{days} */i) {|x| day = x; ''}
+      s7 = s6.sub(/\*$/) {|x| annualar = true; ''}
+      title = s6
+
+      raw_date = [day, month].compact.join(' ')
+      raw_date = weekday if raw_date.empty?
+
+      d = Chronic.parse(raw_date + ' ' + time1.to_s, 
+                        :endian_precedence => :little, now: @now)
+      
+      if time2 then
+        end_date = Chronic.parse(raw_date + ' ' + time2.to_s, 
+                        :endian_precedence => :little)
+      end
+      
+      recurring = nil
+      
+      if annualar then
+        
+        recurring = 'yearly'
+        if d < @now then
+          d = Chronic.parse(raw_date, now: Time.local(@now.year + 1, 1, 1)) 
+        end
+      end      
+      
+      puts [5, title, raw_date, time1].inspect if @debug
+      { title: title, date: d, end_date: end_date, recurring: recurring }
+    end    
+    
+    
   end
   
 end
