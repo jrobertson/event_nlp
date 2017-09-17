@@ -38,6 +38,7 @@ class EventNlp
   
   def parse(s)
 
+    @params[:input] = s
     r = run_route(s)
 
     return unless r.is_a? Hash
@@ -67,6 +68,7 @@ class EventNlp
     get /^(.*)\s+(every \d\w+ \w+#{time})\s*#{starting}/ do \
                                    |title, recurring, time, raw_date, end_date|
 
+      input = params[:input].clone            
       d = Chronic.parse(raw_date + ' ' + time.to_s)
       
       if recurring =~ /day|week/ then
@@ -75,14 +77,19 @@ class EventNlp
 
           new_date = CronFormat.new(ChronicCron.new(recurring)\
                                     .to_expression, d).to_time
+          input.gsub!(raw_date, new_date\
+                      .strftime("#{new_date.day.ordinal} %b %Y"))             
           d = new_date
           
         end
       end
       
-      puts [0, title, recurring, time, raw_date, end_date].inspect if @debug
-      {title: title, recurring: recurring, date: d, 
-       end_date: end_date}
+      if @debug then
+        puts [0, input, title, recurring, time, raw_date, end_date].inspect 
+      end
+      
+      {input: input, title: title, recurring: recurring, date: d, 
+       end_date: end_date}      
       
     end
     
@@ -91,8 +98,7 @@ class EventNlp
     get /^(.*)\s+(\d(?:st|nd|rd|th) \w+ of every \w+(?: at (\d+[ap]m) )?)\s*#{starting}/ do \
                                    |title, recurring, time, raw_date, end_date|
 
-      input = params[:input]
-
+      input = params[:input].clone
       d = Chronic.parse(raw_date)
       
       if recurring =~ /day|week|month/ then        
@@ -110,20 +116,19 @@ class EventNlp
       end
       
       puts [0.3, title, recurring, time, raw_date, end_date].inspect if @debug
-      {input: input, title: title, recurring: recurring, date: d, 
-       end_date: end_date}
+      {input: input, title: title, recurring: recurring, date: d, end_date: 
+                                                                      end_date}
       
     end    
     
     get /^(.*)(every .*)/ do |title, recurring|
 
-      input = params[:input]
       exp = ChronicCron.new(recurring).to_expression
 
       d = CronFormat.new(exp).to_time
       
       puts [0.5, title, recurring, d].inspect if @debug
-      {input: input, title: title, recurring: recurring, date: d }
+      {title: title, recurring: recurring, date: d }
       
     end    
     
@@ -210,7 +215,8 @@ class EventNlp
     get /(\d[^\s]+)\s*(\d+(?:\:\d+)?[ap]m)?\s+([^\*]+)(\*)?/ do |raw_date,
         time, title, annualar|
 
-      d = Chronic.parse(raw_date + ' ' + time.to_s, :endian_precedence => :little)
+      d = Chronic.parse(raw_date + ' ' + time.to_s, 
+                        :endian_precedence => :little)
       recurring = nil
       
       if annualar then
@@ -230,7 +236,8 @@ class EventNlp
     # some event Wednesday 11am
     
     relative_day = '|today|tomorrow|tonight'
-    get /^(.*)\s+((?:#{weekday+relative_day})(?: \d{1,2}(?::\d{2})?[ap]m)?)/i do |title, raw_date|
+    get /^(.*)\s+((?:#{weekday+relative_day})(?: \d{1,2}(?::\d{2})?[ap]m)?)/i \
+                                                           do |title, raw_date|
       
       d = Chronic.parse(raw_date)
       
