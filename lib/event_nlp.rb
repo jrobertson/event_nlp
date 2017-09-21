@@ -62,7 +62,7 @@ class EventNlp
     weekdays = Date::DAYNAMES.join('|').downcase
     months = (Date::MONTHNAMES[1..-1] + Date::ABBR_MONTHNAMES[1..-1])\
                                                             .join('|').downcase
-    times = /(?: *(?:at )?(\d+(?::\d+)?[ap]m) *)/
+    times = /(?: *(?:at |@ |from )?(\d+(?::\d+)?[ap]m) *)/
     days = /\d+(?:st|nd|rd|th)/
     
     #weekdays = Date::DAYNAMES.join('|').downcase
@@ -202,10 +202,11 @@ class EventNlp
       
     end        
  
+    
     # 27-Mar@1436 some important day
     # 25/07/2017 11pm some important day
     #
-    get /^(\d[^\s]+)\s*(\d+(?:\:\d+)?[ap]m)?\s+([^\*]+)(\*)?/ do |raw_date,
+    get /^(\d+\/\d+\/\d+)\s*(\d+(?:\:\d+)?[ap]m)?\s+([^\*]+)(\*)?/ do |raw_date,
         time, title, annualar|
 
       d = Chronic.parse(raw_date + ' ' + time.to_s, 
@@ -254,7 +255,7 @@ class EventNlp
       s5 = s4.sub(/ *#{months} */i) {|x| month = x; ''}
       s6 = s5.sub(/ *#{days} */i) {|x| day = x; ''}
       s7 = s6.sub(/\*$/) {|x| annualar = true; ''}
-      title = s6
+      title = s7.strip
 
       raw_date = [day, month].compact.join(' ')
       raw_date = weekday if raw_date.empty?
