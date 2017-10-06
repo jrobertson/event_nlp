@@ -159,15 +159,28 @@ class EventNlp
 
     end
     
+    
+    # 7th Oct Euston Station (meet at Timothy's house at 7pm)
+    get /^(\d(?:st|nd|rd|th) \w+) *(.*)\s+at\s+(\w+)/i do |raw_day, title, time|
+      
+      d = Chronic.parse(raw_day + ' ' + time)
+      
+      puts [1.5, title, raw_day, time].inspect if @debug
+      { title: title, date: d }
+      
+    end    
+    
+    
     # hall 2 friday at 11am
     get /(.*)\s+(#{weekdays})\s+at\s+(.*)/i do |title, raw_day, time|
       
       d = Chronic.parse(raw_day + ' ' + time)
       
-      puts [1.5, title, raw_day].inspect if @debug
+      puts [1.7, title, raw_day].inspect if @debug
       { title: title, date: d }
       
-    end    
+    end        
+    
     
     # e.g. 21/05/2017 Forum meetup at Roundpeg from 2pm
     get /^(\d+\/\d+\/\d+)\s+(.*)(?: from|at)\s+(\d+[ap]m)/ do 
