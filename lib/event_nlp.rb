@@ -63,6 +63,7 @@ class EventNlp
     months = (Date::MONTHNAMES[1..-1] + Date::ABBR_MONTHNAMES[1..-1])\
                                                             .join('|').downcase
     times = /(?: *(?:at |@ |from )?(\d+(?::\d+)?[ap]m) *)/
+    times2 = /\d+(?::\d+)?[ap]m-\d+(?::\d+)?[ap]m|\d+(?::\d+)?-\d+(?::\d+)?/
     days = /\d+(?:st|nd|rd|th)/
     
     #weekdays = Date::DAYNAMES.join('|').downcase
@@ -252,6 +253,21 @@ class EventNlp
       {title: title, date: d }
        
     end
+    
+    
+    # Some event (10 Woodhouse Lane) 30th Nov from 9:15-17:00
+
+    get /^(.*) (#{days}) (#{months}) from (#{times2})/i do |title, day, month, xtimes|
+
+      t1, t2 = xtimes.split(/-/,2)
+
+      d1 = Chronic.parse([month, day, t1].join(' '))
+      d2 = Chronic.parse([month, day, t2].join(' '))
+
+      puts [4.5, title, d1, d2].inspect if @debug
+
+      { title: title, date: d1, end_date: d2 }
+    end    
     
     # Tuesday 3rd October gas service at Barbara's house morning 9am-1pm
     
