@@ -65,12 +65,28 @@ class EventNlp
     times = /(?: *(?:at |@ |from )?(\d+(?::\d+)?[ap]m) *)/
     times2 = /\d+(?::\d+)?[ap]m-\d+(?::\d+)?[ap]m|\d+(?::\d+)?-\d+(?::\d+)?/
     days = /\d+(?:st|nd|rd|th)/
+    periods = /day|week|month/
     
     #weekdays = Date::DAYNAMES.join('|').downcase
     #
     #times = /(?: *at )?\d[ap]m/
-    
 
+   # e.g. electricity bill on the 28th of every month    
+
+   get /(.*) on the (#{days}) of every (#{periods})/ do |title, day, recurring|
+
+
+      d = Chronic.parse(day)
+      
+      
+      if @debug then
+        puts [0.1, title, recurring, d].inspect 
+      end
+      
+      {title: title, recurring: recurring, date: d}      
+      
+    end
+    
 
     get /^(.*)\s+(every \d\w+ \w+#{times})\s*#{starting}/ do \
                                    |title, recurring, time, raw_date, end_date|
@@ -92,7 +108,7 @@ class EventNlp
       end
       
       if @debug then
-        puts [0, input, title, recurring, time, raw_date, end_date].inspect 
+        puts [0.2, input, title, recurring, time, raw_date, end_date].inspect 
       end
       
       {input: input, title: title, recurring: recurring, date: d, 
