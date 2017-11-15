@@ -51,11 +51,7 @@ class EventNlp
 
   def expressions(params) 
     
-    # some event every 2 weeks
-    # some event every 2 weeks at 6am starting from 14th Jan
-    # some event every 2 weeks at 6am starting from 18th Feb until 28th Oct
-    # some event every 2nd Monday (starting 7th Nov 2016)
-    # some event every 2nd Monday (starting 7th Nov until 3rd Dec)
+
 
 
     starting = /(?:\(?\s*starting (\d+\w{2} \w+\s*\w*)(?: until (.*))?\s*\))?/
@@ -143,17 +139,23 @@ class EventNlp
                                                                       end_date}
       
     end    
-    
+
+    # some event every 2 weeks
+    # some event every 2 weeks at 6am starting from 14th Jan
+    # some event every 2 weeks at 6am starting from 18th Feb until 28th Oct
+    # some event every 2nd Monday (starting 7th Nov 2016)
+    # some event every 2nd Monday (starting 7th Nov until 3rd Dec)    
+    # some event every 2 weeks (starting 02/11/17)
     get /^(.*)(every .*)/ do |title, recurring|
 
-      exp = ChronicCron.new(recurring).to_expression
-
       raw_start_date = recurring[/(?<=starting )[^\)]+/]
-
       
       if raw_start_date then
-        start_date = Chronic.parse(raw_start_date, now: @now - 1)
+        start_date = Chronic.parse(raw_start_date, now: @now - 1, 
+                                   :endian_precedence => :little)
 
+        exp = ChronicCron.new(recurring, start_date).to_expression
+        
         cf = CronFormat.new(exp, start_date - 1)
         #cf.next until cf.to_time >= start_date
       else
