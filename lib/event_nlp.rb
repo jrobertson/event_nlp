@@ -146,6 +146,8 @@ class EventNlp
     # some event every 2nd Monday (starting 7th Nov 2016)
     # some event every 2nd Monday (starting 7th Nov until 3rd Dec)    
     # some event every 2 weeks (starting 02/11/17)
+    # some event every Wednesday 1pm-4pm
+    #
     get /^(.*)(every .*)/ do |title, recurring|
 
       raw_start_date = recurring[/(?<=starting )[^\)]+/]
@@ -159,12 +161,19 @@ class EventNlp
         cf = CronFormat.new(exp, start_date - 1)
         #cf.next until cf.to_time >= start_date
       else
+        exp = ChronicCron.new(recurring).to_expression
         cf = CronFormat.new(exp, @now)
       end
+      
       d = cf.to_time
       
+      if recurring =~ /-/ then
+        end_date = Chronic.parse d.to_date.to_s + ' ' + 
+            recurring[/(?<=-)\d+(?::\d+)?(?:[ap]m)?/] 
+      end
+          
       puts [0.5, title, recurring, d].inspect if @debug
-      {title: title.rstrip, recurring: recurring, date: d }
+      {title: title.rstrip, recurring: recurring, date: d, end_date: end_date }
       
     end    
     
@@ -277,6 +286,7 @@ class EventNlp
 
     get /^(.*) (#{days}) (#{months}) from (#{times2})/i do |title, day, month, xtimes|
 
+      puts 'before xtimes : ' + xtimes.inspect
       t1, t2 = xtimes.split(/-/,2)
 
       d1 = Chronic.parse([month, day, t1].join(' '))
@@ -291,6 +301,7 @@ class EventNlp
     
     get '*' do
       
+      puts 'or else'
       s = params[:input]
       
       time1, time2, month, weekday, day, end_date, annualar  = nil, nil, nil, 
