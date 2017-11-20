@@ -286,7 +286,6 @@ class EventNlp
 
     get /^(.*) (#{days}) (#{months}) from (#{times2})/i do |title, day, month, xtimes|
 
-      puts 'before xtimes : ' + xtimes.inspect
       t1, t2 = xtimes.split(/-/,2)
 
       d1 = Chronic.parse([month, day, t1].join(' '))
@@ -301,7 +300,6 @@ class EventNlp
     
     get '*' do
       
-      puts 'or else'
       s = params[:input]
       
       time1, time2, month, weekday, day, end_date, annualar  = nil, nil, nil, 
