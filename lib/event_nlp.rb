@@ -49,16 +49,13 @@ class EventNlp
 
   private
 
-  def expressions(params) 
-    
-
-
+  def expressions(params)     
 
     starting = /(?:\(?\s*starting (\d+\w{2} \w+\s*\w*)(?: until (.*))?\s*\))?/
     weekdays = Date::DAYNAMES.join('|').downcase
     months = (Date::MONTHNAMES[1..-1] + Date::ABBR_MONTHNAMES[1..-1])\
                                                             .join('|').downcase
-    times = /(?: *(?:at |@ |from )?(\d+(?::\d+)?[ap]m) *)/
+    times = /(?: *(?:at |@ |from )?(\d+(?::\d+)?(?:[ap]m|\b)) *)/
     times2 = /\d+(?::\d+)?[ap]m-\d+(?::\d+)?[ap]m|\d+(?::\d+)?-\d+(?::\d+)?/
     days = /\d+(?:st|nd|rd|th)/
     periods = /day|week|month/
@@ -214,15 +211,51 @@ class EventNlp
       { title: title, date: d }
       
     end    
+
+    # some event Wednesday
+    # some event Wednesday 11am
     
+    relative_day = '|today|tomorrow|tonight'
+    get /^(.*)\s+(#{weekdays+relative_day})(?: \(([^\)]+)\)) (at \d{1,2}(?::\d{2})?(?:[ap]m)?)/i \
+                                                           do |title, raw_date, date2, time2|
+      puts 'time2: ' + time2.inspect if @debug
+      puts 'date2: ' + date2 if @debug
+      puts 'raw_date: ' + raw_date if @debug
+      
+      d = if date2 then
+        Chronic.parse(date2 + ' '+ time2.to_s)
+      else
+        Chronic.parse(raw_date + ' '+ time2)
+      end
+      
+      puts [4, title, raw_date, date2, time2].inspect if @debug
+      {title: title, date: d }
+       
+    end
+        
     
     # hall 2 friday at 11am
-    get /(.*)\s+(#{weekdays})\s+at\s+(.*)/i do |title, raw_day, time|
+    get /^(.*)\s+(#{weekdays})(?: \(([^\)]+)\))?(#{times})?/i do |title, raw_day, actual_date, time|
       
-      d = Chronic.parse(raw_day + ' ' + time)
+      puts 'actual_date: ' + actual_date.inspect if @debug
+      puts 'raw_day: ' + raw_day.inspect if @debug
+      puts 'time: ' + time.inspect if @debug
       
-      puts [1.7, title, raw_day].inspect if @debug
-      { title: title, date: d }
+      input = params[:input].clone
+      
+      if actual_date then
+        d = Chronic.parse(raw_day + ' ' + time.to_s)
+      else
+        d = Chronic.parse(raw_day + ' ' + time.to_s)        
+        input.sub!(/#{weekdays}/i,%Q(#{raw_day} (#{d.strftime("#{d.day.ordinal} %b %Y")})))        
+      end
+        
+      puts 'foo' + d.inspect
+
+      
+      puts [1.7, input, title, raw_day].inspect if @debug
+      
+      {input: input, title: title, date: d }
       
     end        
     
@@ -278,26 +311,12 @@ class EventNlp
           d = Chronic.parse(raw_date, now: Time.local(@now.year + 1, 1, 1)) 
         end
       end
-      
-      
+            
       puts [3, title, raw_date, time].inspect if @debug
       { title: title, date: d, recurring: recurring }
     end
 
-    # some event Wednesday
-    # some event Wednesday 11am
-    
-    relative_day = '|today|tomorrow|tonight'
-    get /^(.*)\s+((?:#{weekdays+relative_day})(?: \d{1,2}(?::\d{2})?[ap]m)?)/i \
-                                                           do |title, raw_date|
-      
-      d = Chronic.parse(raw_date)
-      
-      puts [4, title, raw_date].inspect if @debug
-      {title: title, date: d }
-       
-    end
-    
+
     
     # Some event (10 Woodhouse Lane) 30th Nov from 9:15-17:00
 
@@ -323,6 +342,7 @@ class EventNlp
           nil, nil, nil, false
 
       s2 = s.sub(/#{times}/i) {|x| time1 = x; ''}
+      puts 's2: ' + s2.inspect if @debug
       s3 = s2.sub(/-(?=\d)/,'').sub(/#{times}/i) {|x| time2 = x; ''}
       s4 = s3.sub(/ *#{weekdays} */i) {|x| weekday = x; ''}
       s5 = s4.sub(/ *#{months} */i) {|x| month = x; ''}
