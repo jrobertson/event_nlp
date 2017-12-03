@@ -150,22 +150,39 @@ class EventNlp
     #
     get /^(.*)(every .*)/ do |title, recurring|
 
+      input = params[:input].clone
       raw_start_date = recurring[/(?<=starting )[^\)]+/]
       
-      if raw_start_date then
+      d = if raw_start_date then
         start_date = Chronic.parse(raw_start_date, now: @now - 1, 
                                    :endian_precedence => :little)
 
-        exp = ChronicCron.new(recurring, start_date).to_expression
+        puts 'start_date: ' + start_date.inspect if @debug
         
-        cf = CronFormat.new(exp, start_date - 1)
-        #cf.next until cf.to_time >= start_date
+        if @now > start_date then
+          exp = ChronicCron.new(recurring, start_date).to_expression
+          puts 'exp: ' + exp.inspect if @debug
+          
+          cf = CronFormat.new(exp, start_date)
+          puts cf.to_time if @debug
+          #cf.next until cf.to_time >= start_date
+          
+          new_date = cf.to_time
+          input.gsub!(/(?<=starting )[^\)]+/, new_date\
+                      .strftime("#{new_date.day.ordinal} %b %Y"))
+          new_date
+
+        else
+          start_date
+        end
+        
       else
         exp = ChronicCron.new(recurring).to_expression
         cf = CronFormat.new(exp, @now)
+        cf.to_time
       end
       
-      d = cf.to_time
+
       
       if recurring =~ /-/ then
         end_date = Chronic.parse d.to_date.to_s + ' ' + 
@@ -173,7 +190,7 @@ class EventNlp
       end
           
       puts [0.5, title, recurring, d].inspect if @debug
-      {title: title.rstrip, recurring: recurring, date: d, end_date: end_date }
+      {input: input, title: title.rstrip, recurring: recurring, date: d, end_date: end_date }
       
     end    
     
