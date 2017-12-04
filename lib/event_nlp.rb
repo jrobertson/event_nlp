@@ -233,8 +233,36 @@ class EventNlp
        
     end
         
+    # Group meeting Red Hall 2pm-4pm on Monday (4th Dec 2017)
+    get /^(.*)\s+(#{times2})(?: on) +(#{weekdays})(?: \(([^\)]+)\))?/i do |title, xtimes, raw_day, actual_date|
+      
+      puts 'actual_date: ' + actual_date.inspect if @debug
+      puts 'raw_day: ' + raw_day.inspect if @debug
+      puts 'xtimes: ' + xtimes.inspect if @debug
+      
+      input = params[:input].clone
+      
+      if actual_date then
+        d = Chronic.parse actual_date
+      else
+        d = Chronic.parse(raw_day)        
+        input.sub!(/#{weekdays}/i,%Q(#{raw_day} (#{d.strftime("#{d.day.ordinal} %b %Y")})))        
+      end
+
+      t1, t2 = xtimes.split(/-/,2)
+      
+      puts 'd: ' + d.inspect if @debug
+
+      d1, d2 = [t1, t2].map {|t| Chronic.parse([d.to_date.to_s, t].join(' ')) }
+            
+      puts [4.65, input, title, raw_day, d1, d2].inspect if @debug
+      
+      {input: input, title: title, date: d1, end_date: d2 }
+      
+    end          
     
     # hall 2 friday at 11am
+
     get /^(.*)\s+(#{weekdays})(?: \(([^\)]+)\))?(#{times})?/i do |title, raw_day, actual_date, time|
       
       puts 'actual_date: ' + actual_date.inspect if @debug
@@ -250,7 +278,7 @@ class EventNlp
         input.sub!(/#{weekdays}/i,%Q(#{raw_day} (#{d.strftime("#{d.day.ordinal} %b %Y")})))        
       end
         
-      puts 'foo' + d.inspect
+      puts 'd: ' + d.inspect if @debug
 
       
       puts [1.7, input, title, raw_day].inspect if @debug
