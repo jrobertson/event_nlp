@@ -311,7 +311,8 @@ class EventNlp
           d = Chronic.parse(raw_date, now: Time.local(@now.year + 1, 1, 1)) 
         end
       end
-            
+      
+      
       puts [3, title, raw_date, time].inspect if @debug
       { title: title, date: d, recurring: recurring }
     end
@@ -320,7 +321,7 @@ class EventNlp
     
     # Some event (10 Woodhouse Lane) 30th Nov from 9:15-17:00
 
-    get /^(.*) (#{days}) (#{months}) from (#{times2})/i do |title, day, month, xtimes|
+    get /^(.*) (#{days}) (#{months})(?: from)? (#{times2})/i do |title, day, month, xtimes|
 
       t1, t2 = xtimes.split(/-/,2)
 

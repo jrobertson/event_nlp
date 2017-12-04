@@ -1,6 +1,6 @@
 Gem::Specification.new do |s|
   s.name = 'event_nlp'
-  s.version = '0.2.17'
+  s.version = '0.3.0'
   s.summary = 'Parses a calendar event for date, time, and description e.g. ' + 
       'hall 2 friday at 11am #=> {:title=>"hall 2", :date=>2017-05-12 11:...} '
   s.authors = ['James Robertson']
