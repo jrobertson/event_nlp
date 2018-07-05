@@ -52,12 +52,13 @@ class EventNlp
   def expressions(params)     
 
     starting = /(?:\(?\s*starting (\d+\w{2} \w+\s*\w*)(?: until (.*))?\s*\))?/
-    weekdays = Date::DAYNAMES.join('|').downcase
-    months = (Date::MONTHNAMES[1..-1] + Date::ABBR_MONTHNAMES[1..-1])\
-                                                            .join('|').downcase
+    weekdays2 = Date::DAYNAMES.join('|').downcase    
+    weekdays = "(%s)" % weekdays2
+    months = "(%s)" % (Date::MONTHNAMES[1..-1] + Date::ABBR_MONTHNAMES[1..-1])\
+                                                        .join('|').downcase
     times = /(?: *(?:at |@ |from )?(\d+(?::\d+)?(?:[ap]m|\b)) *)/
     times2 = /\d+(?::\d+)?[ap]m-\d+(?::\d+)?[ap]m|\d+(?::\d+)?-\d+(?::\d+)?/
-    days = /\d+(?:st|nd|rd|th)/
+    days = /(\d+(?:st|nd|rd|th))/
     periods = /day|week|month/
     
     #weekdays = Date::DAYNAMES.join('|').downcase
@@ -187,7 +188,8 @@ class EventNlp
       end
           
       puts [0.5, title, recurring, d].inspect if @debug
-      {input: input, title: title.rstrip, recurring: recurring, date: d, end_date: end_date }
+      {input: input, title: title.rstrip, recurring: recurring, 
+       date: d, end_date: end_date }
       
     end    
     
@@ -203,7 +205,8 @@ class EventNlp
     
     
     # 7th Oct Euston Station (meet at Timothy's house at 7pm)
-    get /^(\d(?:st|nd|rd|th) \w+) *(.*)\s+at\s+(\w+)/i do |raw_day, title, time|
+    get /^(\d(?:st|nd|rd|th) \w+) *(.*)\s+at\s+(\w+)/i do \
+        |raw_day, title, time|
       
       d = Chronic.parse(raw_day + ' ' + time)
       
@@ -216,7 +219,7 @@ class EventNlp
     # some event Wednesday 11am
     
     relative_day = '|today|tomorrow|tonight'
-    get /^(.*)\s+(#{weekdays+relative_day})(?: \(([^\)]+)\)) (at \d{1,2}(?::\d{2})?(?:[ap]m)?)/i \
+    get /^(.*)\s+(#{weekdays2+relative_day})(?: \(([^\)]+)\)) (at \d{1,2}(?::\d{2})?(?:[ap]m)?)/i \
                                                            do |title, raw_date, date2, time2|
       puts 'time2: ' + time2.inspect if @debug
       puts 'date2: ' + date2 if @debug
@@ -234,7 +237,8 @@ class EventNlp
     end
         
     # Group meeting Red Hall 2pm-4pm on Monday (4th Dec 2017)
-    get /^(.*)\s+(#{times2})(?: on) +(#{weekdays})(?: \(([^\)]+)\))?/i do |title, xtimes, raw_day, actual_date|
+    get /^(.*)\s+(#{times2})(?: on) +#{weekdays}(?: \(([^\)]+)\))?/i \
+        do |title, xtimes, raw_day, actual_date|
       
       puts 'actual_date: ' + actual_date.inspect if @debug
       puts 'raw_day: ' + raw_day.inspect if @debug
@@ -246,7 +250,8 @@ class EventNlp
         d = Chronic.parse actual_date
       else
         d = Chronic.parse(raw_day)        
-        input.sub!(/#{weekdays}/i,%Q(#{raw_day} (#{d.strftime("#{d.day.ordinal} %b %Y")})))        
+        input.sub!(/#{weekdays}/i,
+                   %Q(#{raw_day} (#{d.strftime("#{d.day.ordinal} %b %Y")})))        
       end
 
       t1, t2 = xtimes.split(/-/,2)
@@ -263,7 +268,8 @@ class EventNlp
     
     # hall 2 friday at 11am
 
-    get /^(.*)\s+(#{weekdays})(?: \(([^\)]+)\))?(#{times})?/i do |title, raw_day, actual_date, time|
+    get /^(.*)\s+#{weekdays}(?: \(([^\)]+)\))?(#{times})?/i \
+        do |title, raw_day, actual_date, time|
       
       puts 'actual_date: ' + actual_date.inspect if @debug
       puts 'raw_day: ' + raw_day.inspect if @debug
@@ -275,7 +281,8 @@ class EventNlp
         d = Chronic.parse(raw_day + ' ' + time.to_s)
       else
         d = Chronic.parse(raw_day + ' ' + time.to_s)        
-        input.sub!(/#{weekdays}/i,%Q(#{raw_day} (#{d.strftime("#{d.day.ordinal} %b %Y")})))        
+        input.sub!(/#{weekdays}/i,
+                   %Q(#{raw_day} (#{d.strftime("#{d.day.ordinal} %b %Y")})))        
       end
         
       puts 'd: ' + d.inspect if @debug
@@ -301,7 +308,8 @@ class EventNlp
     end        
     
     # friday hall 2 11am
-    get /^(#{weekdays})\s+(.*)\s+(\d+(?::\d{2})?[ap]m)$/i do |raw_day, title, time|
+    get /^#{weekdays}\s+(.*)\s+(\d+(?::\d{2})?[ap]m)$/i do \
+        |raw_day, title, time|
       
       d = Chronic.parse(raw_day + ' ' + time)
       
@@ -309,7 +317,17 @@ class EventNlp
       { title: title, date: d }
       
     end    
-    
+
+    # Tuesday 10th July hall 2 at 11am
+    get /#{weekdays}\s+#{days}\s+#{months}\s+(?:at )?(.*)\s+at\s+(#{times})/i \
+        do |wday, day, month, title,  time|
+      
+      d = Chronic.parse([day, month, time].join(' '))
+      
+      puts ['1.44.5', day, month, title].inspect if @debug
+      { title: title, date: d }
+      
+    end       
     
     # hall 2 at 11am
     get /(.*)\s+at\s+(#{times})/i do |title,  time|
@@ -325,8 +343,8 @@ class EventNlp
     # 27-Mar@1436 some important day
     # 25/07/2017 11pm some important day
     #
-    get /^(\d+\/\d+\/\d+)\s*(\d+(?:\:\d+)?[ap]m)?\s+([^\*]+)(\*)?/ do |raw_date,
-        time, title, annualar|
+    get /^(\d+\/\d+\/\d+)\s*(\d+(?:\:\d+)?[ap]m)?\s+([^\*]+)(\*)?/ \
+        do |raw_date, time, title, annualar|
 
       d = Chronic.parse(raw_date + ' ' + time.to_s, 
                         :endian_precedence => :little)
@@ -349,7 +367,8 @@ class EventNlp
     
     # Some event (10 Woodhouse Lane) 30th Nov from 9:15-17:00
 
-    get /^(.*) (#{days}) (#{months})(?: from)? (#{times2})/i do |title, day, month, xtimes|
+    get /^(.*) #{days} #{months}(?: from)? (#{times2})/i do \
+        |title, day, month, xtimes|
 
       t1, t2 = xtimes.split(/-/,2)
 
