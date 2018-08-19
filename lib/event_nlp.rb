@@ -329,15 +329,7 @@ class EventNlp
       
     end       
     
-    # hall 2 at 11am
-    get /(.*)\s+at\s+(#{times})/i do |title,  time|
-      
-      d = Chronic.parse(time)
-      
-      puts [1.45, title].inspect if @debug
-      { title: title, date: d }
-      
-    end        
+   
  
     
     # 27-Mar@1436 some important day
@@ -379,6 +371,30 @@ class EventNlp
 
       { title: title, date: d1, end_date: d2 }
     end    
+    
+    # Some event (10 Woodhouse Lane) 30th Nov at 9:15-
+
+    get /^(.*) #{days} #{months}(?: at)? (#{times})/i do \
+        |title, day, month, t1|
+
+
+      d1 = Chronic.parse([month, day, t1].join(' '))
+
+      puts [4.7, title, d1].inspect if @debug
+
+      { title: title, date: d1 }
+    end
+
+    # hall 2 at 11am
+    get /(.*)\s+at\s+(#{times})/i do |title,  time|
+      
+      d = Chronic.parse(time)
+      
+      puts [1.45, title].inspect if @debug
+      { title: title, date: d }
+      
+    end         
+    
     
     # Tuesday 3rd October gas service at Barbara's house morning 9am-1pm
     
