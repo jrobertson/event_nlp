@@ -70,7 +70,10 @@ class EventNlp
    get /(.*) on the (#{days}) of every (#{periods})/ do |title, day, recurring|
 
 
-      d = Chronic.parse(day)
+      raw_d = Chronic.parse(day)
+      
+      # if the date is less than now then increment it by a month
+      d = raw_d < @now ? (raw_d.to_date >> 1).to_time : raw_d
       
       
       if @debug then
@@ -386,6 +389,7 @@ class EventNlp
     end
 
     # hall 2 at 11am
+    #
     get /(.*)\s+at\s+(#{times})/i do |title,  time|
       
       d = Chronic.parse(time)
@@ -396,8 +400,33 @@ class EventNlp
     end         
     
     
-    # Tuesday 3rd October gas service at Barbara's house morning 9am-1pm
+    # Council Tax on the last day of the month
+    #
+    get /^(.*) (?:o[nf] the)\s*last day of the month/i do |title|
+      
+      td = @now.to_date
+      d = Date.civil(td.year, td.month, -1).to_time
+      
+      puts [5, title].inspect if @debug
+      { title: title, date: d }
+      
+    end        
     
+    # Council Tax last day of the month
+    #
+    get /^(.*) +last day of the month/i do |title|
+      
+      td = @now.to_date
+      d = Date.civil(td.year, td.month, -1).to_time
+      
+      puts [5.1, title].inspect if @debug
+      { title: title, date: d }
+      
+    end        
+    
+    
+    # Tuesday 3rd October gas service at Barbara's house morning 9am-1pm
+    #
     get '*' do
       
       s = params[:input]
@@ -435,7 +464,7 @@ class EventNlp
         end
       end      
       
-      puts [5, title, raw_date, time1].inspect if @debug
+      puts [6, title, raw_date, time1].inspect if @debug
       { title: title, date: d, end_date: end_date, recurring: recurring }
     end    
     
