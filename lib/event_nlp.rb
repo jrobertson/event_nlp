@@ -454,6 +454,32 @@ class EventNlp
       
     end        
     
+    # some important day 11 Oct *
+    #
+    get /^(.*) +(\d+) +#{months} *(\*)?/i \
+        do |title, day, month, annualar|
+      
+      raw_date = day + ' ' + month
+
+      d = Chronic.parse(raw_date, 
+                        :endian_precedence => :little)
+      recurring = nil
+      
+      if annualar then
+        
+        recurring = 'yearly'
+        if d < @now then
+          d = Chronic.parse(raw_date, 
+                            now: Time.local(@now.year + 1, 1, 1)) 
+        end
+      end
+      
+      
+      puts [6, title, raw_date].inspect.debug if @debug
+      { title: title, date: d, recurring: recurring }
+    end
+    
+    
     
     # Tuesday 3rd October gas service at Barbara's house morning 9am-1pm
     #
@@ -494,7 +520,7 @@ class EventNlp
         end
       end      
       
-      puts [6, title, raw_date, time1].inspect.debug if @debug
+      puts [10, title, raw_date, time1].inspect.debug if @debug
       { title: title, date: d, end_date: end_date, recurring: recurring }
     end    
     
