@@ -53,17 +53,19 @@ class EventNlp
   def expressions(params)     
 
     starting = /(?:\(?\s*starting (\d+\w{2} \w+\s*\w*)(?: until (.*))?\s*\))?/
-    weekdays2 = Date::DAYNAMES.join('|').downcase    
+    weekdays2 = (Date::DAYNAMES + Date::ABBR_DAYNAMES).join('|').downcase    
     weekdays = "(%s)" % weekdays2
     months = "(%s)" % (Date::MONTHNAMES[1..-1] + Date::ABBR_MONTHNAMES[1..-1])\
                                                         .join('|').downcase
     times = /(?: *(?:at |@ |from )?(\d+(?::\d+)?(?:[ap]m|\b)) *)/
     times2 = /\d+(?::\d+)?[ap]m-\d+(?::\d+)?[ap]m|\d+(?::\d+)?-\d+(?::\d+)?/
+    times3 = /(\d+(?::\d+)?[ap]m-\d+(?::\d+)?[ap]m|\d+(?::\d+)?-\d+(?::\d+)?)/    
     days = /(\d+(?:st|nd|rd|th))/
     periods = /day|week|month/
     
     #weekdays = Date::DAYNAMES.join('|').downcase
     #
+    
     #times = /(?: *at )?\d[ap]m/
 
    # e.g. electricity bill on the 28th of every month    
@@ -223,7 +225,7 @@ class EventNlp
     # some event Wednesday 11am
     
     relative_day = '|today|tomorrow|tonight'
-    get /^(.*)\s+(#{weekdays2+relative_day})(?: \(([^\)]+)\)) (at \d{1,2}(?::\d{2})?(?:[ap]m)?)/i \
+    get /^(.*)\s+(#{weekdays2+relative_day}\b)(?: \(([^\)]+)\)) (at \d{1,2}(?::\d{2})?(?:[ap]m)?)/i \
                                                            do |title, raw_date, date2, time2|
       puts ('time2: ' + time2.inspect).debug if @debug
       puts ('date2: ' + date2).debug if @debug
@@ -241,7 +243,7 @@ class EventNlp
     end
         
     # Group meeting Red Hall 2pm-4pm on Monday (4th Dec 2017)
-    get /^(.*)\s+(#{times2})(?: on) +#{weekdays}(?: \(([^\)]+)\))?/i \
+    get /^(.*)\s+(#{times2})(?: on) +#{weekdays}\b(?: \(([^\)]+)\))?/i \
         do |title, xtimes, raw_day, actual_date|
       
       if @debug then
@@ -256,7 +258,7 @@ class EventNlp
         d = Chronic.parse actual_date
       else
         d = Chronic.parse(raw_day)        
-        input.sub!(/#{weekdays}/i,
+        input.sub!(/#{weekdays}\b/i,
                    %Q(#{raw_day} (#{d.strftime("#{d.day.ordinal} %b %Y")})))        
       end
 
@@ -274,7 +276,7 @@ class EventNlp
     
     # hall 2 friday at 11am
 
-    get /^(.*)\s+#{weekdays}(?: \(([^\)]+)\))?(#{times})?/i \
+    get /^(.*)\s+#{weekdays}\b(?: \(([^\)]+)\))?(#{times})?/i \
         do |title, raw_day, actual_date, time|
       
       if @debug then
@@ -328,9 +330,10 @@ class EventNlp
     end       
     
     # friday hall 2 11am
-    get /^#{weekdays}\s+(.*)\s+(\d+(?::\d{2})?[ap]m)$/i do \
+    get /^#{weekdays}\b\s+(.*)\s+(\d+(?::\d{2})?[ap]m)$/i do \
         |raw_day, title, time|
       
+      puts [raw_day, title, time].inspect if @debug
       venue = title[/^at +(.*)/,1]
       d = Chronic.parse(raw_day + ' ' + time)
       
@@ -340,7 +343,7 @@ class EventNlp
     end    
 
     # Tuesday 10th July hall 2 at 11am
-    get /#{weekdays}\s+#{days}\s+#{months}\s+(?:at )?(.*)\s+at\s+(#{times})/i \
+    get /#{weekdays}\b\s+#{days}\s+#{months}\s+(?:at )?(.*)\s+at\s+(#{times})/i \
         do |wday, day, month, title,  time|
       
       d = Chronic.parse([day, month, time].join(' '))
@@ -392,10 +395,26 @@ class EventNlp
 
       { title: title, date: d1, end_date: d2 }
     end
+    
+    # Some event (10 Woodhouse Lane) 30th Nov from 9:15-17:00
+
+    get /^#{weekdays}\b #{months} #{days} #{times3} (.*)/i do \
+        |wday, month, day, xtimes, title|
+
+      puts [month, day, xtimes, title].inspect if @debug
+      t1, t2 = xtimes.split(/-/,2)
+
+      d1 = Chronic.parse([month, day, t1 + ':00'].join(' '))
+      d2 = Chronic.parse([month, day, t2 + ':00'].join(' '))
+
+      puts [4.55, title, d1, d2].inspect.debug if @debug
+
+      { title: title, date: d1, end_date: d2 }
+    end    
 
     # e.g. Wednesday 30th Nov at 9:15 10 Woodhouse Lane
 
-    get /^(?:#{weekdays2}) #{days} #{months}(?: at)? #{times}(.*)/i do \
+    get /^(?:#{weekdays2}\b) #{days} #{months}(?: at)? #{times}(.*)/i do \
         |day, month, t1, title|
 
       d1 = Chronic.parse([month, day, t1].join(' '))
