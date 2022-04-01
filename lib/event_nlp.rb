@@ -7,7 +7,6 @@ require 'ostruct'
 require 'app-routes'
 
 
-
 module Ordinals
 
   refine Integer do
@@ -63,6 +62,27 @@ class EventNlp
     return unless r.is_a? Hash
 
     OpenStruct.new({input: s}.merge r)
+
+  end
+
+  # returns an Array object of dates, projected from a recurring event
+  #
+  def project(s, year: Time.now.year)
+
+    r = parse s
+    dates = []
+    now = @now
+
+    while r.date.year == year.to_i do
+
+      dates << r.date
+      @now = r.date + 1
+      r = parse(r.input)
+
+    end
+
+    @now = now
+    return dates
 
   end
 
