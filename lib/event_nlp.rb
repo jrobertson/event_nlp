@@ -12,7 +12,7 @@ module Ordinals
 
   refine Integer do
     def ordinal
-      self.to_s + ( (10...20).include?(self) ? 'th' :
+      self.to_s + ( self.between?(10,20) ? 'th' :
                     %w{ th st nd rd th th th th th th }[self % 10] )
     end
   end
@@ -37,7 +37,25 @@ class EventNlp
 
   end
 
-  def parse(s)
+  def parse(raws)
+
+    # catch irregular expressions and interpret them in advance
+    #
+    # e.g. Cafe meeting Thursday every 2 weeks =>
+    #                       Cafe meeting every 2nd Thursday
+    #
+    weekdays2 = (Date::DAYNAMES + Date::ABBR_DAYNAMES).join('|').downcase
+    pattern = /(?<day>#{weekdays2}) every (?<n>\d) weeks/i
+    found = raws.match(pattern)
+
+    s = if found then
+      s2 = "every %s %s" % [found[:n].to_i.ordinal, found[:day]]
+      raws.sub(pattern, s2)
+    else
+      raws
+    end
+
+    #-----------------------------------------------------------
 
     @params[:input] = s
     r = run_route(s)
