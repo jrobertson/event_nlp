@@ -63,6 +63,8 @@ class EventNlp
     if @debug then
       puts 'r.date: ' + r.date.inspect
       puts 'r.input: ' + r.input.inspect
+      puts 'EventNlp.new(r.date+1).parse(r.input).date: ' + \
+          EventNlp.new(r.date+1).parse(r.input).date.inspect
     end
 
     return [r.date] if (r.date == EventNlp.new(r.date+1).parse(r.input).date)
@@ -72,6 +74,8 @@ class EventNlp
       dates << r.date
       @now = if r.recurring == 'month' then
        (r.date.to_datetime >> 1).to_time
+      #elsif r.recurring == 'weekly'
+
       else
         r.date + 1
       end
@@ -142,7 +146,7 @@ class EventNlp
 
 
       puts 'day: ' + day.inspect if @debug
-      raw_d = Chronic.parse(day + ' ' + Date::MONTHNAMES[@now.month])
+      raw_d = Chronic.parse(day + ' ' + Date::MONTHNAMES[@now.month], now: @now)
 
       # if the date is less than now then increment it by a month
       d = raw_d < @now ? (raw_d.to_date >> 1).to_time : raw_d
@@ -162,7 +166,7 @@ class EventNlp
                                    |title, recurring, time, raw_date, end_date|
 
       input = params[:input].clone
-      d = Chronic.parse(raw_date + ' ' + time.to_s)
+      d = Chronic.parse(raw_date + ' ' + time.to_s, now: @now)
 
       if @debug then
         puts 'e300'
@@ -207,7 +211,7 @@ class EventNlp
                                    |title, recurring, time, raw_date, end_date|
 
       input = params[:input].clone
-      d = Chronic.parse(raw_date)
+      d = Chronic.parse(raw_date, now: @now)
 
       if recurring =~ /day|week|month/ then
 
@@ -277,7 +281,7 @@ class EventNlp
 
       if recurring =~ /-/ then
         end_date = Chronic.parse d.to_date.to_s + ' ' +
-            recurring[/(?<=-)\d+(?::\d+)?(?:[ap]m)?/]
+            recurring[/(?<=-)\d+(?::\d+)?(?:[ap]m)?/], now: @now
       end
 
       puts ['0.5'.highlight, title, recurring, d].join("\n").debug if @debug
@@ -301,7 +305,7 @@ class EventNlp
     get /^(\d(?:st|nd|rd|th) \w+) *(.*)\s+at\s+(\w+)/i do \
         |raw_day, title, time|
 
-      d = Chronic.parse(raw_day + ' ' + time)
+      d = Chronic.parse(raw_day + ' ' + time, now: @now)
 
       puts ['1.5'.highlight, title, raw_day, time].inspect.debug if @debug
       { title: title, date: d }
@@ -319,9 +323,9 @@ class EventNlp
       puts ('raw_date: ' + raw_date).debug if @debug
 
       d = if date2 then
-        Chronic.parse(date2 + ' '+ time2.to_s)
+        Chronic.parse(date2 + ' '+ time2.to_s, now: @now)
       else
-        Chronic.parse(raw_date + ' '+ time2)
+        Chronic.parse(raw_date + ' '+ time2, now: @now)
       end
 
       puts ['4'.highlight, title, raw_date, date2, time2].inspect.debug if @debug
@@ -342,9 +346,9 @@ class EventNlp
       input = params[:input].clone
 
       if actual_date then
-        d = Chronic.parse actual_date
+        d = Chronic.parse actual_date, now: @now
       else
-        d = Chronic.parse(raw_day)
+        d = Chronic.parse(raw_day, now: @now)
         input.sub!(/#{weekdays}\b/i,
                    %Q(#{raw_day} (#{d.strftime("#{d.day.ordinal} %b %Y")})))
       end
@@ -353,7 +357,7 @@ class EventNlp
 
       puts ('d: ' + d.inspect).debug if @debug
 
-      d1, d2 = [t1, t2].map {|t| Chronic.parse([d.to_date.to_s, t].join(' ')) }
+      d1, d2 = [t1, t2].map {|t| Chronic.parse([d.to_date.to_s, t].join(' '), now: @now) }
 
       puts ['4.65'.highlight, input, title, raw_day, d1, d2].inspect.debug if @debug
 
@@ -375,10 +379,9 @@ class EventNlp
 
       input = params[:input].clone
 
-      d = Chronic.parse(raw_day + ' ' + time.to_s)
+      d = Chronic.parse(raw_day + ' ' + time.to_s, now: @now)
 
       if recurring.nil?
-        d = Chronic.parse(raw_day + ' ' + time.to_s)
         input.sub!(/#{weekdays}/i,
                    %Q(#{raw_day} (#{d.strftime("#{d.day.ordinal} %b %Y")})))
       end
@@ -397,7 +400,7 @@ class EventNlp
                                                     |raw_date, title, raw_time|
 
       d = Chronic.parse(raw_date + ' ' +
-                        raw_time, :endian_precedence => :little)
+                        raw_time, now: @now, :endian_precedence => :little)
       recurring = nil
 
       puts [3, title, raw_date].inspect.debug if @debug
@@ -409,8 +412,8 @@ class EventNlp
         |raw_day, title, start_time, end_time|
 
       venue = title[/^at +(.*)/,1]
-      d = Chronic.parse(raw_day + ' ' + start_time)
-      d2 = Chronic.parse(raw_day + ' ' + end_time)
+      d = Chronic.parse(raw_day + ' ' + start_time, now: @now)
+      d2 = Chronic.parse(raw_day + ' ' + end_time, now: @now)
 
       puts ['1.44.3', title, raw_day].inspect.debug if @debug
       { title: title, date: d, end_date: d2, venue: venue }
@@ -423,7 +426,7 @@ class EventNlp
 
       puts [raw_day, title, time].inspect if @debug
       venue = title[/^at +(.*)/,1]
-      d = Chronic.parse(raw_day + ' ' + time)
+      d = Chronic.parse(raw_day + ' ' + time, now: @now)
 
       puts [1.44, title, raw_day].inspect.debug if @debug
       { title: title, date: d, venue: venue }
@@ -434,7 +437,7 @@ class EventNlp
     get /#{weekdays}\b\s+#{days}\s+#{months}\s+(?:at )?(.*)\s+at\s+(#{times})/i \
         do |wday, day, month, title,  time|
 
-      d = Chronic.parse([day, month, time].join(' '))
+      d = Chronic.parse([day, month, time].join(' '), now: @now)
 
       puts ['1.44.5', day, month, title].inspect.debug if @debug
       { title: title, date: d }
@@ -450,7 +453,7 @@ class EventNlp
     get /^(\d+\/\d+\/\d+)\s*(\d+(?:\:\d+)?[ap]m)?\s+([^\*]+)(\*)?/ \
         do |raw_date, time, title, annualar|
 
-      d = Chronic.parse(raw_date + ' ' + time.to_s,
+      d = Chronic.parse(raw_date + ' ' + time.to_s, now: @now,
                         :endian_precedence => :little)
       recurring = nil
 
@@ -476,8 +479,8 @@ class EventNlp
 
       t1, t2 = xtimes.split(/-/,2)
 
-      d1 = Chronic.parse([month, day, t1].join(' '))
-      d2 = Chronic.parse([month, day, t2].join(' '))
+      d1 = Chronic.parse([month, day, t1].join(' '), now: @now)
+      d2 = Chronic.parse([month, day, t2].join(' '), now: @now)
 
       puts [4.5, title, d1, d2].inspect.debug if @debug
 
@@ -492,8 +495,8 @@ class EventNlp
       puts [month, day, xtimes, title].inspect if @debug
       t1, t2 = xtimes.split(/-/,2)
 
-      d1 = Chronic.parse([month, day, t1 + ':00'].join(' '))
-      d2 = Chronic.parse([month, day, t2 + ':00'].join(' '))
+      d1 = Chronic.parse([month, day, t1 + ':00'].join(' '), now: @now)
+      d2 = Chronic.parse([month, day, t2 + ':00'].join(' '), now: @now)
 
       puts [4.55, title, d1, d2].inspect.debug if @debug
 
@@ -505,7 +508,7 @@ class EventNlp
     get /^(?:#{weekdays2}\b) #{days} #{months}(?: at)? #{times}(.*)/i do \
         |day, month, t1, title|
 
-      d1 = Chronic.parse([month, day, t1].join(' '))
+      d1 = Chronic.parse([month, day, t1].join(' '), now: @now)
 
       puts [4.6, title, d1].inspect.debug if @debug
 
@@ -518,7 +521,7 @@ class EventNlp
         |title, day, month, t1|
 
 
-      d1 = Chronic.parse([month, day, t1].join(' '))
+      d1 = Chronic.parse([month, day, t1].join(' '), now: @now)
 
       puts [4.7, title, d1].inspect.debug if @debug
 
@@ -529,7 +532,7 @@ class EventNlp
     #
     get /(.*)\s+at\s+(#{times})/i do |title,  time|
 
-      d = Chronic.parse(time)
+      d = Chronic.parse(time, now: @now)
 
       puts [1.45, title].inspect.debug if @debug
       { title: title, date: d }
@@ -568,7 +571,7 @@ class EventNlp
 
       raw_date = day + ' ' + month
 
-      d = Chronic.parse(raw_date,
+      d = Chronic.parse(raw_date, now: @now,
                         :endian_precedence => :little)
       recurring = nil
 
@@ -613,7 +616,7 @@ class EventNlp
                         :endian_precedence => :little, now: @now)
 
       if time2 then
-        end_date = Chronic.parse(raw_date + ' ' + time2.to_s,
+        end_date = Chronic.parse(raw_date + ' ' + time2.to_s, now: @now,
                         :endian_precedence => :little)
       end
 
