@@ -38,21 +38,7 @@ class EventNlp
 
   def parse(raws)
 
-    # catch irregular expressions and interpret them in advance
-    #
-    # e.g. Cafe meeting Thursday every 2 weeks =>
-    #                       Cafe meeting every 2nd Thursday
-    #
-    weekdays2 = (Date::DAYNAMES + Date::ABBR_DAYNAMES).join('|').downcase
-    pattern = /(?<day>#{weekdays2}) every (?<n>\d) weeks/i
-    found = raws.match(pattern)
-
-    s = if found then
-      s2 = "every %s %s" % [found[:n].to_i.ordinal, found[:day]]
-      raws.sub(pattern, s2)
-    else
-      raws
-    end
+    s = filter_irregular(raws)
 
     #-----------------------------------------------------------
 
@@ -88,6 +74,37 @@ class EventNlp
 
   private
 
+  def filter_irregular(raws)
+
+    # catch irregular expressions and interpret them in advance
+    #
+    # e.g. Cafe meeting Thursday every 2 weeks =>
+    #                       Cafe meeting every 2nd Thursday
+    #
+    weekdays2 = (Date::DAYNAMES + Date::ABBR_DAYNAMES).join('|').downcase
+    pattern = /(?<day>#{weekdays2}) every (?<n>\d) weeks/i
+    found = raws.match(pattern)
+
+    if found then
+      s2 = "every %s %s" % [found[:n].to_i.ordinal, found[:day]]
+      s = raws.sub(pattern, s2)
+    end
+
+    # e.g.  "Cafe meeting 14th Monthly" =>
+    #                         Cafe meeting on the 14th of every month
+    #
+    found = raws.match(/(?<title>.*)\s+(?<day>\w+)(?:st|nd|rd|th) monthly/i)
+
+    if found then
+      s = "%s on the %s of every month" % [found[:title],
+                                           found[:day].to_i.ordinal]
+    end
+
+    puts 'filter_irregular - s: ' + s.inspect if @debug
+    return s || raws
+
+  end
+
   def expressions(params)
 
     starting = /(?:\(?\s*starting (\d+\w{2} \w+\s*\w*)(?: until (.*))?\s*\))?/
@@ -108,7 +125,7 @@ class EventNlp
 
    # e.g. electricity bill on the 28th of every month
 
-   get /(.*) on the (#{days}) of every (#{periods})/ do |title, day, recurring|
+   get /(.*) on the (#{days}) of every (#{periods})/i do |title, day, recurring|
 
 
       raw_d = Chronic.parse(day)
@@ -125,6 +142,7 @@ class EventNlp
 
     end
 
+    #
 
     get /^(.*)\s+(every \d\w+ \w+#{times}\s*#{starting})/ do \
                                    |title, recurring, time, raw_date, end_date|
