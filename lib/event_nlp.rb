@@ -55,14 +55,27 @@ class EventNlp
   #
   def project(s, year: Time.now.year)
 
-    r = parse s
+    r0 = parse s
+    r = parse r0.input
     dates = []
     now = @now
+
+    if @debug then
+      puts 'r.date: ' + r.date.inspect
+      puts 'r.input: ' + r.input.inspect
+    end
+
+    return [r.date] if (r.date == EventNlp.new(r.date+1).parse(r.input).date)
 
     while r.date.year == year.to_i do
 
       dates << r.date
-      @now = r.date + 1
+      @now = if r.recurring == 'month' then
+       (r.date.to_datetime >> 1).to_time
+      else
+        r.date + 1
+      end
+      #@now = r.date + 1
       r = parse(r.input)
 
     end
@@ -125,10 +138,11 @@ class EventNlp
 
    # e.g. electricity bill on the 28th of every month
 
-   get /(.*) on the (#{days}) of every (#{periods})/i do |title, day, recurring|
+   get /(.*) on the #{days} of every (month)/i do |title, day, recurring|
 
 
-      raw_d = Chronic.parse(day)
+      puts 'day: ' + day.inspect if @debug
+      raw_d = Chronic.parse(day + ' ' + Date::MONTHNAMES[@now.month])
 
       # if the date is less than now then increment it by a month
       d = raw_d < @now ? (raw_d.to_date >> 1).to_time : raw_d
@@ -349,10 +363,11 @@ class EventNlp
 
     # hall 2 friday at 11am
 
-    get /^(.*)\s+#{weekdays}\b(?: \(([^\)]+)\))?(#{times})?/i \
-        do |title, raw_day, actual_date, time|
+    get /^(.*)\s+#{weekdays}\b(?: \(([^\)]+)\))?(?:#{times})? *(weekly)?/i \
+        do |title, raw_day, actual_date, time, recurring|
 
       if @debug then
+        puts ('recurring: ' + recurring.inspect).debug
         puts ('actual_date: ' + actual_date.inspect).debug
         puts ('raw_day: ' + raw_day.inspect).debug
         puts ('time: ' + time.inspect).debug
@@ -360,9 +375,9 @@ class EventNlp
 
       input = params[:input].clone
 
-      if actual_date then
-        d = Chronic.parse(raw_day + ' ' + time.to_s)
-      else
+      d = Chronic.parse(raw_day + ' ' + time.to_s)
+
+      if recurring.nil?
         d = Chronic.parse(raw_day + ' ' + time.to_s)
         input.sub!(/#{weekdays}/i,
                    %Q(#{raw_day} (#{d.strftime("#{d.day.ordinal} %b %Y")})))
