@@ -117,6 +117,14 @@ class EventNlp
                                            found[:day].to_i.ordinal]
     end
 
+    # e.g.  "Utility bill last day Monthly" =>
+    #                         Utility bill last day of the month
+    #
+    if raws =~ /last day monthly$/i then
+      s = raws.sub(/last day monthly$/i,'last day of the month')
+    end
+
+
     puts 'filter_irregular - s: ' + s.inspect if @debug
     return s || raws
 
