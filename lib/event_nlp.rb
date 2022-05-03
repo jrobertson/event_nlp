@@ -107,6 +107,18 @@ class EventNlp
       s = raws.sub(pattern, s2)
     end
 
+    months = (Date::MONTHNAMES + Date::ABBR_MONTHNAMES).join('|').downcase
+
+    # the following would be ambiguous input, but we will assume they
+    # meant the 14th day of every month
+    # e.g. "Cafe meeting 14th May Monthly"
+    found = raws.match(/(?<title>.*)\s+(?<day>\w+(?:st|nd|rd|th)) (#{months}) monthly/i)
+
+    if found then
+      s = "%s on the %s of every month" % [found[:title],
+                                           found[:day].to_i.ordinal]
+    end
+
     # e.g.  "Cafe meeting 14th Monthly" =>
     #                         Cafe meeting on the 14th of every month
     #
