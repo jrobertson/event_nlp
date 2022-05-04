@@ -53,7 +53,7 @@ class EventNlp
 
   # returns an Array object of dates, projected from a recurring event
   #
-  def project(s, year: Time.now.year)
+  def project(s, year: @now.year)
 
     r0 = parse s
     r = parse r0.input
@@ -67,18 +67,19 @@ class EventNlp
           EventNlp.new(r.date+1).parse(r.input).date.inspect
     end
 
-    return [r.date] if (r.date == EventNlp.new(r.date+1).parse(r.input).date)
+    return [r.date] if (r.date == EventNlp.new(r.date+1, debug: @debug).parse(r.input).date)
 
     while r.date.year == year.to_i do
 
       dates << r.date
       @now = if r.recurring == 'month' then
-       (r.date.to_datetime >> 1).to_time
+       (r.date.to_date >> 1).to_time
       #elsif r.recurring == 'weekly'
 
       else
         r.date + 1
       end
+      puts '@now: ' + @now.inspect if @debug
       #@now = r.date + 1
       r = parse(r.input)
 
