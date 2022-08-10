@@ -2,10 +2,18 @@
 
 # file: event_nlp.rb
 
-require 'chronic_cron'
-require 'ostruct'
-require 'app-routes'
 
+#require 'chronic_cron'
+require 'ostruct'
+require 'requestor'
+
+code = Requestor.read('http://a0.jamesrobertson.me.uk/rorb/r/ruby') do |x|
+  x.require 'app-routes'
+  x.require 'chronic_cron'
+end
+
+eval code
+#require 'app-routes'
 
 module Ordinals
 
@@ -150,6 +158,8 @@ class EventNlp
     weekdays = "(%s)" % weekdays2
     months = "(%s)" % (Date::MONTHNAMES[1..-1] + Date::ABBR_MONTHNAMES[1..-1])\
                                                         .join('|').downcase
+    years = /(20[0-9]{2})/
+
     times = /(?: *(?:at |@ |from )?(\d+(?::\d+)?(?:[ap]m|\b)) *)/
     times2 = /\d+(?::\d+)?[ap]m-\d+(?::\d+)?[ap]m|\d+(?::\d+)?-\d+(?::\d+)?/
     times3 = /(\d+(?::\d+)?[ap]m-\d+(?::\d+)?[ap]m|\d+(?::\d+)?-\d+(?::\d+)?)/
@@ -536,12 +546,40 @@ class EventNlp
       { title: title, date: d1 }
     end
 
+    # Some event (10 Woodhouse Lane) 30th Nov at 9:15-10:00
+
+    get /^(.*) #{days} #{months} #{years}(?: at)? (#{times2})/i do \
+        |title, day, month, years, xtimes|
+
+      t1, t2 = xtimes.split(/-/,2)
+      puts '[title, years, day, month, t1] ' + [title, years, day, month, t1].inspect if @debug
+      d1 = Chronic.parse([month, day, years, t1].join(' '), now: @now)
+      d2 = Chronic.parse([month, day, years, t2].join(' '), now: @now)
+
+      puts [4.655, title, d1].inspect.debug if @debug
+
+      { title: title.sub(/ on$/,''), date: d1, end_date: d2 }
+    end
+
+    # Some event (10 Woodhouse Lane) 30th Nov at 9:15
+
+    get /^(.*) #{days} #{months} #{years}(?: at)? (#{times})/i do \
+        |title, day, month, years, t1|
+
+      puts '[title, years, day, month, t1] ' + [title, years, day, month, t1].inspect if @debug
+      d1 = Chronic.parse([month, day, years, t1].join(' '), now: @now)
+
+      puts [4.66, title, d1].inspect.debug if @debug
+
+      { title: title.sub(/ on$/,''), date: d1 }
+    end
+
     # Some event (10 Woodhouse Lane) 30th Nov at 9:15-
 
     get /^(.*) #{days} #{months}(?: at)? (#{times})/i do \
         |title, day, month, t1|
 
-
+      puts '[title, day, month, t1] ' + [title, day, month, t1].inspect if @debug
       d1 = Chronic.parse([month, day, t1].join(' '), now: @now)
 
       puts [4.7, title, d1].inspect.debug if @debug
