@@ -24,8 +24,8 @@ class EventNlp
   using ColouredText
   
   attr_accessor :params
-  
-  def initialize(now=Time.now, params: {}, debug: false)
+    
+  def initialize(now=Time.now, params: {leap: :back}, debug: false)
     
     super()
     
@@ -45,6 +45,7 @@ class EventNlp
     #-----------------------------------------------------------
 
     @params[:input] = s
+    puts 'parse: about to execute run_route' if @debug
     r = run_route(s)
 
     return unless r.is_a? Hash
@@ -67,6 +68,7 @@ class EventNlp
     end_date = if raw_end_date then
       EventNlp.new().parse(raw_end_date).date    
     else
+      puts 'before date parse' if @debug
       (Date.parse('1 Jan ' + (year+1).to_s) - 1).to_time
     end
     
@@ -93,6 +95,7 @@ class EventNlp
 
     while r.date <= end_date do
 
+      puts 'project/r.date: ' + r.date.inspect if @debug
       dates << r.date
       @now = if r.recurring == 'month' then
        (r.date.to_date >> 1).to_time
@@ -190,10 +193,29 @@ class EventNlp
    get /(.*) on the #{days} of every (month)/i do |title, day, recurring|
 
 
+      puts 'inside route 0.1' if @debug
       puts 'day: ' + day.inspect if @debug
-      raw_d = Chronic.parse(day + ' ' + Date::MONTHNAMES[@now.month], now: @now)
+      
+      month = @now.month
+      
+      if @now.month == 2 then
+        
+        if (!Date.leap?(@now.year) and day.to_i == 29) or day.to_i == 30 then
+          if params[:leap] == :back then
+            day = '28th'
+          else
+            day = '1st'
+            month += 1
+          end
+        end
+        
+      end
+      
+      raw_d = Chronic.parse(day + ' ' + Date::MONTHNAMES[month], now: @now)
+      puts 'raw_d: ' + raw_d.inspect if @debug
       
       # if the date is less than now then increment it by a month
+      puts '@now: ' + @now.inspect if @debug
       d = raw_d < @now ? (raw_d.to_date >> 1).to_time : raw_d
       
       
